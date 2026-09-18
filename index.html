@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>オルゴールドーム型ガチャ</title>
+<style>
+:root{
+  /* 位置調整はここだけ触ればOK */
+  --handle-left: 32.8%;
+  --handle-top: 72.3%;
+  --handle-width: 17%;
+
+  --rotor-left: 50%;
+  --rotor-top: 33.3%;
+  --rotor-width: 42%;
+
+  --capsule-center-x: 50%;
+  --capsule-center-y: 47.2%;
+  --capsule-radius-x: 24%;
+  --capsule-radius-y: 8.8%;
+  --capsule-size: 10.5%;
+
+  --chute-left: 61.8%;
+  --chute-top: 73.2%;
+}
+
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  min-height:100%;
+  background:
+    radial-gradient(circle at 50% 25%, #fffdf6 0, #f4efe5 45%, #dfd7c8 100%);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  overflow-x:hidden;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:manipulation;
+}
+.stage{
+  width:min(100vw,760px);
+  margin:0 auto;
+  min-height:100svh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 0 20px;
+}
+.machine{
+  position:relative;
+  width:min(96vw,690px);
+  aspect-ratio:1/1.42;
+}
+.base{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  pointer-events:none;
+  z-index:10;
+  filter:drop-shadow(0 22px 26px rgba(52,35,12,.20));
+}
+
+/* ドーム内部 */
+.rotor-wrap{
+  position:absolute;
+  left:var(--rotor-left);
+  top:var(--rotor-top);
+  width:var(--rotor-width);
+  aspect-ratio:1/1;
+  transform:translate(-50%,-50%);
+  z-index:4;
+  pointer-events:none;
+}
+.rotor{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  transform-origin:50% 50%;
+  will-change:transform;
+}
+
+/* カプセルの円周 */
+.capsule-stage{
+  position:absolute;
+  inset:0;
+  z-index:5;
+  pointer-events:none;
+}
+.capsule{
+  position:absolute;
+  left:var(--capsule-center-x);
+  top:var(--capsule-center-y);
+  width:var(--capsule-size);
+  aspect-ratio:1/1;
+  object-fit:contain;
+  transform:
+    translate(-50%,-50%)
+    translate(var(--cx),var(--cy));
+  transform-origin:50% 50%;
+  filter:
+    hue-rotate(var(--hue,0deg))
+    saturate(1.12)
+    drop-shadow(0 4px 5px rgba(0,0,0,.22));
+  will-change:transform,filter,opacity;
+}
+.capsule.gold{
+  filter:
+    sepia(.55) saturate(2) hue-rotate(350deg) brightness(1.12)
+    drop-shadow(0 0 9px rgba(255,204,65,.85));
+}
+
+/* 正面ハンドル */
+.handle-button{
+  position:absolute;
+  left:var(--handle-left);
+  top:var(--handle-top);
+  width:var(--handle-width);
+  aspect-ratio:1/1;
+  transform:translate(-50%,-50%);
+  padding:0;
+  border:0;
+  background:transparent;
+  z-index:20;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.handle{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  transform-origin:50% 50%;
+  filter:drop-shadow(0 5px 6px rgba(0,0,0,.24));
+  will-change:transform;
+}
+.handle-button::after{
+  content:"";
+  position:absolute;
+  inset:12%;
+  border-radius:50%;
+  opacity:0;
+  box-shadow:0 0 0 rgba(255,218,115,0);
+  transition:.2s;
+  pointer-events:none;
+}
+.handle-button.ready::after{
+  opacity:.5;
+  animation:readyPulse 1.7s ease-in-out infinite;
+}
+@keyframes readyPulse{
+  50%{
+    opacity:.95;
+    box-shadow:0 0 18px rgba(255,213,91,.7),0 0 34px rgba(255,189,61,.35);
+  }
+}
+
+/* 選択されたカプセル */
+.capsule.selected{
+  z-index:30;
+  animation:selectedPulse .55s ease-in-out 3;
+}
+@keyframes selectedPulse{
+  50%{
+    transform:
+      translate(-50%,-50%)
+      translate(var(--cx),var(--cy))
+      scale(1.28);
+    filter:
+      hue-rotate(var(--hue,0deg))
+      brightness(1.28)
+      drop-shadow(0 0 14px rgba(255,239,165,.95));
+  }
+}
+
+/* 排出カプセル */
+.out-capsule{
+  position:absolute;
+  left:var(--chute-left);
+  top:var(--chute-top);
+  width:11.5%;
+  aspect-ratio:1/1;
+  object-fit:contain;
+  z-index:40;
+  opacity:0;
+  transform:translate(-50%,-60%) scale(.55);
+  pointer-events:none;
+}
+.out-capsule.show{
+  animation:dispense .82s cubic-bezier(.18,.72,.2,1) forwards;
+}
+@keyframes dispense{
+  0%{opacity:0;transform:translate(-50%,-120%) scale(.5) rotate(-20deg)}
+  30%{opacity:1}
+  72%{transform:translate(-50%,8%) scale(1) rotate(12deg)}
+  100%{opacity:1;transform:translate(-50%,0%) scale(1) rotate(0)}
+}
+
+/* 光 */
+.glow{
+  position:absolute;
+  left:50%;
+  top:34%;
+  width:62%;
+  height:48%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  z-index:3;
+  opacity:0;
+  pointer-events:none;
+  background:radial-gradient(circle,rgba(255,239,176,.36),rgba(255,205,92,.10) 45%,transparent 72%);
+  filter:blur(4px);
+}
+.machine.running .glow{
+  opacity:1;
+  animation:glowPulse .8s ease-in-out infinite alternate;
+}
+@keyframes glowPulse{
+  to{opacity:.72;transform:translate(-50%,-50%) scale(1.06)}
+}
+
+/* 回転アニメーション */
+.machine.running .handle{
+  animation:handleTurn 2.2s cubic-bezier(.12,.62,.25,1) forwards;
+}
+@keyframes handleTurn{
+  0%{transform:rotate(0deg)}
+  78%{transform:rotate(680deg)}
+  100%{transform:rotate(720deg)}
+}
+
+.machine.running .rotor{
+  animation:rotorTurn 4.1s cubic-bezier(.10,.58,.18,1) forwards;
+}
+@keyframes rotorTurn{
+  0%{transform:rotate(0)}
+  72%{transform:rotate(-970deg)}
+  100%{transform:rotate(-1080deg)}
+}
+
+.machine.running .capsule-stage{
+  animation:capsuleRing 4.1s cubic-bezier(.10,.58,.18,1) forwards;
+  transform-origin:var(--capsule-center-x) var(--capsule-center-y);
+}
+@keyframes capsuleRing{
+  0%{transform:rotate(0)}
+  72%{transform:rotate(1250deg)}
+  100%{transform:rotate(1440deg)}
+}
+
+/* 小さな案内 */
+.tap-label{
+  position:absolute;
+  left:50%;
+  bottom:2.4%;
+  transform:translateX(-50%);
+  z-index:50;
+  font-size:clamp(11px,2.7vw,16px);
+  letter-spacing:.10em;
+  color:#806632;
+  opacity:.72;
+  pointer-events:none;
+  transition:.2s;
+}
+.machine.running .tap-label{opacity:0}
+
+@media (max-width:480px){
+  .stage{padding:0}
+  .machine{width:100vw}
+}
+</style>
+</head>
+<body>
+
+<main class="stage">
+  <section class="machine" id="machine">
+    <div class="glow"></div>
+
+    <!-- 22.png：中のオルゴール回転盤 -->
+    <div class="rotor-wrap">
+      <img class="rotor" src="22.png" alt="">
+    </div>
+
+    <!-- 23.png：カプセル。JSで複数配置 -->
+    <div class="capsule-stage" id="capsuleStage"></div>
+
+    <!-- 20.png：本体。右側の金色ユニットはこの画像に残す -->
+    <img class="base" src="20.png" alt="オルゴールドーム型ガチャ">
+
+    <!-- 21.png：正面、排出口左側のハンドル -->
+    <button class="handle-button ready" id="handleButton" type="button" aria-label="ハンドルを回す">
+      <img class="handle" src="21.png" alt="">
+    </button>
+
+    <img class="out-capsule" id="outCapsule" src="23.png" alt="">
+    <div class="tap-label">HANDLE TO PLAY</div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const machine = document.getElementById("machine");
+  const handleButton = document.getElementById("handleButton");
+  const capsuleStage = document.getElementById("capsuleStage");
+  const outCapsule = document.getElementById("outCapsule");
+
+  let busy = false;
+  const CAPSULE_COUNT = 9;
+
+  function makeCapsules(){
+    capsuleStage.innerHTML = "";
+
+    const rect = machine.getBoundingClientRect();
+    const rx = rect.width * .24;
+    const ry = rect.height * .062;
+
+    for(let i=0;i<CAPSULE_COUNT;i++){
+      const angle = (Math.PI * 2 * i / CAPSULE_COUNT) - Math.PI/2;
+      const img = document.createElement("img");
+
+      img.src = "23.png";
+      img.className = "capsule";
+      img.dataset.index = String(i);
+
+      const x = Math.cos(angle) * rx;
+      const y = Math.sin(angle) * ry;
+
+      img.style.setProperty("--cx", `${x}px`);
+      img.style.setProperty("--cy", `${y}px`);
+      img.style.setProperty("--hue", `${i * 37}deg`);
+
+      capsuleStage.appendChild(img);
+    }
+  }
+
+  async function play(){
+    if(busy) return;
+    busy = true;
+
+    handleButton.classList.remove("ready");
+    outCapsule.classList.remove("show");
+    void outCapsule.offsetWidth;
+
+    const capsules = [...capsuleStage.querySelectorAll(".capsule")];
+    capsules.forEach(c => c.classList.remove("selected"));
+
+    machine.classList.remove("running");
+    void machine.offsetWidth;
+    machine.classList.add("running");
+
+    if(navigator.vibrate){
+      navigator.vibrate([18,35,18]);
+    }
+
+    // ハンドル・内部・カプセル回転
+    await new Promise(r => setTimeout(r, 4100));
+
+    // デモ用：ランダムに1個選択
+    // 実運用ではここをGASの抽選結果に置き換える
+    const selected = capsules[Math.floor(Math.random() * capsules.length)];
+    selected.classList.add("selected");
+
+    await new Promise(r => setTimeout(r, 1300));
+
+    // 選ばれたカプセルを消して排出口へ
+    selected.style.opacity = "0";
+    outCapsule.style.setProperty(
+      "filter",
+      getComputedStyle(selected).filter
+    );
+    outCapsule.classList.add("show");
+
+    await new Promise(r => setTimeout(r, 1200));
+
+    machine.classList.remove("running");
+    handleButton.classList.add("ready");
+
+    // 次の試遊に備えて戻す
+    setTimeout(() => {
+      selected.style.opacity = "1";
+      selected.classList.remove("selected");
+      busy = false;
+    }, 650);
+  }
+
+  handleButton.addEventListener("click", play);
+
+  window.addEventListener("resize", makeCapsules);
+  window.addEventListener("load", makeCapsules);
+  makeCapsules();
+})();
+</script>
+</body>
+</html>
